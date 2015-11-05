@@ -7,7 +7,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.ArrayAdapter;
 import android.widget.GridView;
 
 import org.json.JSONArray;
@@ -24,15 +23,19 @@ import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
 
-    private ArrayAdapter<String> adapter;
-    private ArrayList<String>  movie_data = new ArrayList<String>()
+    private GridView gridView;
+    private GridViewAdapter gridAdapter;
+
+    private GridViewAdapter adapter;
+    private ArrayList<ImageItem>  movie_data = new ArrayList<ImageItem>()
     {{
-            add(new String("http://www.oilerie.com/mm5/images/img_no_thumb.jpg"));
+            add(new ImageItem("http://www.oilerie.com/mm5/images/img_no_thumb.jpg", "no_id"));
         }};
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -40,10 +43,18 @@ public class MainActivity extends AppCompatActivity {
         FetchMovieTask moviesTask = new FetchMovieTask();
         moviesTask.execute("bla", "bla");
 
-        adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, movie_data);
-        GridView gridview = (GridView) findViewById(R.id.gridview);
-        gridview.setAdapter(adapter);
+
+        //GridView gridview = (GridView) findViewById(R.id.gridview);
+        //gridview.setAdapter(adapter);
+
+
+
+        gridView = (GridView) findViewById(R.id.gridView);
+        adapter = new GridViewAdapter(this, R.layout.poster_grid_item, movie_data);
+        gridView.setAdapter(adapter);
     }
+
+
 
 
     @Override
@@ -68,10 +79,10 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    public class FetchMovieTask extends AsyncTask<String, Void, ArrayList<String>> {
+    public class FetchMovieTask extends AsyncTask<String, Void, ArrayList<ImageItem>> {
 
         private final String LOG_TAG = FetchMovieTask.class.getSimpleName();
-        private ArrayList<String> getMovieDataFromJson(String movieJsonStr, int numItems)
+        private ArrayList<ImageItem> getMovieDataFromJson(String movieJsonStr, int numItems)
                 throws JSONException {
 
             /* movie data comes from http://api.themoviedb.org/3/discover/movie?sort_by=popularity.desc&api_key={API_KEY}
@@ -126,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.v(LOG_TAG, "Movie ID: " + movieId + " ");
                 Log.v(LOG_TAG, "Movie poster id: " + moviePosterId + " ");
 
-                movie_data.add(new String("http://image.tmdb.org/t/p/w185/" + moviePosterId));
+                movie_data.add(new ImageItem("http://image.tmdb.org/t/p/w185/" + moviePosterId, movieId));
 
                 //TODO do something with movie data
 
@@ -136,7 +147,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected ArrayList<String> doInBackground(String... params){
+        protected ArrayList<ImageItem> doInBackground(String... params){
             // These two need to be declared outside the try/catch
             // so that they can be closed in the finally block.
             HttpURLConnection urlConnection = null;
@@ -146,7 +157,7 @@ public class MainActivity extends AppCompatActivity {
             String moviesJsonStr = null;
             String LOG_TAG = "Daliavi-tag";
             String POPULARITY_SORT_DESC = "popularity.desc";
-            String API_KEY ="{API KEY}";
+            String API_KEY ="YOUR_API_KEY";
 
             try {
                 // Construct the URL for the TMDB http://api.themoviedb.org/3/discover/movie?sort_by=popularity.desc&api_key={API KEY}
@@ -219,7 +230,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected void onPostExecute(ArrayList<String> result) {
+        protected void onPostExecute(ArrayList<ImageItem> result) {
             super.onPostExecute(result);
             adapter.notifyDataSetChanged();
             if (result != null) {
