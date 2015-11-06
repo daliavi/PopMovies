@@ -18,7 +18,7 @@ import java.util.ArrayList;
 public class GridViewAdapter extends ArrayAdapter {
     private Context context;
     private int layoutResourceId;
-    private ArrayList<ImageItem> data;
+    private ArrayList<MovieData> data;
 
     public GridViewAdapter(Context context, int layoutResourceId, ArrayList data) {
         super(context, layoutResourceId, data);
@@ -44,10 +44,10 @@ public class GridViewAdapter extends ArrayAdapter {
             holder = (ViewHolder) row.getTag();
         }
 
-        ImageItem item = data.get(position);
+        MovieData item = data.get(position);
         //holder.imageTitle.setText(item.getTitle());
         //holder.image.setImageBitmap(item.getImage());
-        String url = item.getUrl();
+        String url = item.getPosterUrl();
 
         Picasso.with(context)
                 .load(url)

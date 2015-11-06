@@ -1,5 +1,6 @@
 package com.daliavi.popmovies;
 
+import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -7,6 +8,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.GridView;
 
 import org.json.JSONArray;
@@ -27,10 +30,12 @@ public class MainActivity extends AppCompatActivity {
     private GridViewAdapter gridAdapter;
 
     private GridViewAdapter adapter;
-    private ArrayList<ImageItem>  movie_data = new ArrayList<ImageItem>()
+    private ArrayList<MovieData>  movie_data = new ArrayList<MovieData>()
     {{
-            add(new ImageItem("http://www.oilerie.com/mm5/images/img_no_thumb.jpg", "no_id"));
+            add(new MovieData("http://www.oilerie.com/mm5/images/img_no_thumb.jpg", "no_id", "","","",""));
         }};
+    private String str = "";
+    private StringBuffer buf = new StringBuffer();
 
 
     @Override
@@ -40,22 +45,42 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
 
+        InputStream is = getResources().openRawResource(R.raw.app);
+
+        try {
+            BufferedReader r = new BufferedReader(new InputStreamReader(is));
+            if (is != null) {
+                while ((str = r.readLine()) != null) {
+                    buf.append(str);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try { is.close(); } catch (Throwable ignore) {}
+        }
+
         FetchMovieTask moviesTask = new FetchMovieTask();
-        moviesTask.execute("bla", "bla");
-
-
-        //GridView gridview = (GridView) findViewById(R.id.gridview);
-        //gridview.setAdapter(adapter);
-
-
+        moviesTask.execute();
 
         gridView = (GridView) findViewById(R.id.gridView);
         adapter = new GridViewAdapter(this, R.layout.poster_grid_item, movie_data);
         gridView.setAdapter(adapter);
+
+        gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
+                MovieData item = (MovieData) parent.getItemAtPosition(position);
+                //Toast.makeText(getApplicationContext(),item.getMovieId().toString(), Toast.LENGTH_LONG).show();
+
+                Intent intent = new Intent(getApplicationContext(), MovieDetailActivity.class);
+                intent.putExtra("movie_data", item);
+                startActivity(intent);
+
+            }
+        });
     }
-
-
-
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -79,10 +104,10 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    public class FetchMovieTask extends AsyncTask<String, Void, ArrayList<ImageItem>> {
+    public class FetchMovieTask extends AsyncTask<String, Void, ArrayList<MovieData>> {
 
         private final String LOG_TAG = FetchMovieTask.class.getSimpleName();
-        private ArrayList<ImageItem> getMovieDataFromJson(String movieJsonStr, int numItems)
+        private ArrayList<MovieData> getMovieDataFromJson(String movieJsonStr, int numItems)
                 throws JSONException {
 
             /* movie data comes from http://api.themoviedb.org/3/discover/movie?sort_by=popularity.desc&api_key={API_KEY}
@@ -128,26 +153,30 @@ public class MainActivity extends AppCompatActivity {
 
             for(int i = 0; i < movieArray.length(); i++) {
                 JSONObject artistItemObject = movieArray.getJSONObject(i);
-                String movieName = artistItemObject.getString(TMDB_TITLE);
+
                 String movieId = artistItemObject.getString(TMDB_ID);
                 String moviePosterId = artistItemObject.getString(TMDB_POSTER);
+                String movieTitle = artistItemObject.getString(TMDB_TITLE);
+                String movieReleaseDate = artistItemObject.getString(TMDB_RELEASE_DATE);
+                String movieOverview = artistItemObject.getString(TMDB_OVERVIEW);
+                String movieRating = artistItemObject.getString(TMDB_VOTE_AVG);
 
                 //logs for debugging, remove after
-                Log.v(LOG_TAG, "Movie name: " + movieName + " ");
+
+                Log.v(LOG_TAG, "Movie name: " + movieTitle + " ");
                 Log.v(LOG_TAG, "Movie ID: " + movieId + " ");
                 Log.v(LOG_TAG, "Movie poster id: " + moviePosterId + " ");
 
-                movie_data.add(new ImageItem("http://image.tmdb.org/t/p/w185/" + moviePosterId, movieId));
-
-                //TODO do something with movie data
-
+                movie_data.add(new MovieData("http://image.tmdb.org/t/p/w342/" + moviePosterId, movieId,
+                        movieTitle, movieReleaseDate, movieOverview, movieRating));
             }
+
             Log.v(LOG_TAG, "everything is ok ");
             return movie_data;
         }
 
         @Override
-        protected ArrayList<ImageItem> doInBackground(String... params){
+        protected ArrayList<MovieData> doInBackground(String... params){
             // These two need to be declared outside the try/catch
             // so that they can be closed in the finally block.
             HttpURLConnection urlConnection = null;
@@ -157,16 +186,17 @@ public class MainActivity extends AppCompatActivity {
             String moviesJsonStr = null;
             String LOG_TAG = "Daliavi-tag";
             String POPULARITY_SORT_DESC = "popularity.desc";
-            String API_KEY ="YOUR_API_KEY";
+            String API_KEY = buf.toString();
 
             try {
                 // Construct the URL for the TMDB http://api.themoviedb.org/3/discover/movie?sort_by=popularity.desc&api_key={API KEY}
 
-                final String ARTIST_BASE_URL = "http://api.themoviedb.org/3/discover/movie?";
+                final String MOVIE_BASE_URL = "http://api.themoviedb.org/3/discover/movie?";
                 final String SORT_PARAM = "sort_by";
                 final String API_KEY_PARAM = "api_key";
 
-                Uri builtUri = Uri.parse(ARTIST_BASE_URL).buildUpon()
+
+                Uri builtUri = Uri.parse(MOVIE_BASE_URL).buildUpon()
                         .appendQueryParameter(SORT_PARAM, POPULARITY_SORT_DESC)
                         .appendQueryParameter(API_KEY_PARAM, API_KEY)
                         .build();
@@ -181,7 +211,10 @@ public class MainActivity extends AppCompatActivity {
                 urlConnection.connect();
 
                 // Read the input stream into a String
+
+                int responseCode = urlConnection.getResponseCode();
                 InputStream inputStream = urlConnection.getInputStream();
+
                 StringBuffer buffer = new StringBuffer();
                 if (inputStream == null) {
                     // Nothing to do.
@@ -203,6 +236,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.v(LOG_TAG, "JSON String: " + moviesJsonStr);
 
             } catch (IOException e) {
+
                 Log.e("PlaceholderFragment", "Error ", e);
                 // If the code didn't successfully get the artist data, there's no point in attemping
                 // to parse it.
@@ -230,7 +264,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected void onPostExecute(ArrayList<ImageItem> result) {
+        protected void onPostExecute(ArrayList<MovieData> result) {
             super.onPostExecute(result);
             adapter.notifyDataSetChanged();
             if (result != null) {
