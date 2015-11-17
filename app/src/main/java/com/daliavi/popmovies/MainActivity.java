@@ -44,9 +44,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-
         InputStream is = getResources().openRawResource(R.raw.app);
-
         try {
             BufferedReader r = new BufferedReader(new InputStreamReader(is));
             if (is != null) {
@@ -61,11 +59,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
         FetchMovieTask moviesTask = new FetchMovieTask();
-        moviesTask.execute();
+        moviesTask.execute("popularity.desc");
+        updateMovieGrid();
 
-        gridView = (GridView) findViewById(R.id.gridView);
-        adapter = new GridViewAdapter(this, R.layout.poster_grid_item, movie_data);
-        gridView.setAdapter(adapter);
+
+        //gridView = (GridView) findViewById(R.id.gridView);
+        //adapter = new GridViewAdapter(this, R.layout.poster_grid_item, movie_data);
+        //gridView.setAdapter(adapter);
 
         gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -80,6 +80,13 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
+    }
+
+    private boolean updateMovieGrid(){
+        gridView = (GridView) findViewById(R.id.gridView);
+        adapter = new GridViewAdapter(this, R.layout.poster_grid_item, movie_data);
+        gridView.setAdapter(adapter);
+        return true;
     }
 
     @Override
@@ -98,16 +105,34 @@ public class MainActivity extends AppCompatActivity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            FetchMovieTask moviesTask = new FetchMovieTask();
+            moviesTask.execute();
             return true;
         }
 
+        FetchMovieTask moviesTask;
+
+        switch (id){
+            case R.id.action_settings:
+
+                return true;
+            case R.id.action_sortAsc:
+                moviesTask = new FetchMovieTask();
+                moviesTask.execute("popularity.asc");
+                updateMovieGrid();
+                return true;
+            case R.id.action_sortDesc:
+                moviesTask = new FetchMovieTask();
+                moviesTask.execute("popularity.desc");
+                return true;
+        }
         return super.onOptionsItemSelected(item);
     }
 
     public class FetchMovieTask extends AsyncTask<String, Void, ArrayList<MovieData>> {
 
         private final String LOG_TAG = FetchMovieTask.class.getSimpleName();
-        private ArrayList<MovieData> getMovieDataFromJson(String movieJsonStr, int numItems)
+        private ArrayList<MovieData> getMovieDataFromJson(String movieJsonStr)
                 throws JSONException {
 
             /* movie data comes from http://api.themoviedb.org/3/discover/movie?sort_by=popularity.desc&api_key={API_KEY}
@@ -151,7 +176,7 @@ public class MainActivity extends AppCompatActivity {
             JSONObject movieJson = new JSONObject(movieJsonStr);
             JSONArray movieArray = movieJson.getJSONArray(TMDB_RESULTS);
 
-            for(int i = 0; i < movieArray.length(); i++) {
+            for(int i = 0; i < movieArray.length(); i++) { //replaced movieArray.length() with 18, not to have an empty cell
                 JSONObject artistItemObject = movieArray.getJSONObject(i);
 
                 String movieId = artistItemObject.getString(TMDB_ID);
@@ -167,9 +192,15 @@ public class MainActivity extends AppCompatActivity {
                 Log.v(LOG_TAG, "Movie ID: " + movieId + " ");
                 Log.v(LOG_TAG, "Movie poster id: " + moviePosterId + " ");
 
-                movie_data.add(new MovieData("http://image.tmdb.org/t/p/w342/" + moviePosterId, movieId,
-                        movieTitle, movieReleaseDate, movieOverview, movieRating));
-            }
+                if (moviePosterId == "null"){
+                    movie_data.add(new MovieData("http://www.oilerie.com/mm5/images/img_no_thumb.jpg", movieId,
+                            movieTitle, movieReleaseDate, movieOverview, movieRating));
+                }else {
+                    movie_data.add(new MovieData("http://image.tmdb.org/t/p/w342/" + moviePosterId, movieId,
+                            movieTitle, movieReleaseDate, movieOverview, movieRating));
+                }
+
+                }
 
             Log.v(LOG_TAG, "everything is ok ");
             return movie_data;
@@ -185,7 +216,7 @@ public class MainActivity extends AppCompatActivity {
             // Will contain the raw JSON response as a string.
             String moviesJsonStr = null;
             String LOG_TAG = "Daliavi-tag";
-            String POPULARITY_SORT_DESC = "popularity.desc";
+            //String POPULARITY_SORT_DESC = "popularity.desc";
             String API_KEY = buf.toString();
 
             try {
@@ -197,7 +228,7 @@ public class MainActivity extends AppCompatActivity {
 
 
                 Uri builtUri = Uri.parse(MOVIE_BASE_URL).buildUpon()
-                        .appendQueryParameter(SORT_PARAM, POPULARITY_SORT_DESC)
+                        .appendQueryParameter(SORT_PARAM, params[0])
                         .appendQueryParameter(API_KEY_PARAM, API_KEY)
                         .build();
 
@@ -210,9 +241,11 @@ public class MainActivity extends AppCompatActivity {
                 urlConnection.setRequestMethod("GET");
                 urlConnection.connect();
 
-                // Read the input stream into a String
-
+                //checking response code, sometimes it does not connect
                 int responseCode = urlConnection.getResponseCode();
+                Log.v(LOG_TAG, "response code " + responseCode);
+
+                // Read the input stream into a String
                 InputStream inputStream = urlConnection.getInputStream();
 
                 StringBuffer buffer = new StringBuffer();
@@ -255,7 +288,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             try {
-                return getMovieDataFromJson(moviesJsonStr, 10);
+                return getMovieDataFromJson(moviesJsonStr);
             } catch (JSONException e){
                 Log.e(LOG_TAG, e.getMessage(), e);
                 e.printStackTrace();
